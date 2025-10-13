@@ -9,6 +9,14 @@ import SwiftUI
 
 final class SettingsViewModel: ObservableObject {
     
+    @Published var authProviders: [AuthProviderId] = []
+    
+    func loadAuthProviders() {
+        if let providers = try? AuthenticationManager.shared.getProviders() {
+            authProviders = providers
+        }
+    }
+    
     func signOut() throws {
         try AuthenticationManager.shared.signOut()
     }
@@ -38,7 +46,13 @@ struct SettingsView: View {
     var body: some View {
         List {
             logOutButton
-            emailSection
+            
+            if viewModel.authProviders.contains(.email) {
+                emailSection
+            }
+        }
+        .onAppear {
+            viewModel.loadAuthProviders()
         }
         .navigationTitle("Settings")
     }
