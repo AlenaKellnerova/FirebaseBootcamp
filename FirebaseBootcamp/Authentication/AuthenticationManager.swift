@@ -12,11 +12,13 @@ struct AuthDataResultModel {
     let uid: String
     let email: String?
     let photoUrl: String?
+    let isAnomymous: Bool
     
     init(user: User) {
         self.uid = user.uid
         self.email = user.email
         self.photoUrl = user.photoURL?.absoluteString
+        self.isAnomymous = user.isAnonymous
     }
 }
 
@@ -60,6 +62,13 @@ final class AuthenticationManager {
     // Signs out locally
     func signOut() throws {
         try Auth.auth().signOut()
+    }
+    
+    func deleteUser() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw URLError(.badURL)
+        }
+        try await user.delete()
     }
 }
 
@@ -120,6 +129,43 @@ extension AuthenticationManager {
     func signIn(credential: AuthCredential) async throws -> AuthDataResultModel {
         let authDataResult = try await Auth.auth().signIn(with: credential)
         return AuthDataResultModel(user: authDataResult.user)
+    }
+    
+}
+
+//MARK: - Sign In Anonymous
+extension AuthenticationManager {
+    
+    @discardableResult
+    func signInAnonymous() async throws -> AuthDataResultModel {
+        let result = try await Auth.auth().signInAnonymously()
+        return AuthDataResultModel(user: result.user)
+    }
+    
+    func linkEmail(email: String, password: String) async throws -> AuthDataResultModel {
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        return try await linkCredential(credential: credential)
+    }
+    
+    func linkApple(result: SignInAppleResult) async throws -> AuthDataResultModel {
+        let credential = OAuthProvider.appleCredential(
+            withIDToken: result.token,
+            rawNonce: result.nonce,
+            fullName: result.fullName)
+        return try await linkCredential(credential: credential)
+    }
+    
+    func linkGoogle(result: GoogleSignInResultModel) async throws -> AuthDataResultModel {
+        let credentials = GoogleAuthProvider.credential(withIDToken: result.idToken, accessToken: result.accessToken)
+        return try await linkCredential(credential: credentials)
+    }
+    
+    private func linkCredential(credential: AuthCredential) async throws -> AuthDataResultModel {
+        guard let user = Auth.auth().currentUser else {
+            throw URLError(.badURL)
+        }
+        let result = try await user.link(with: credential)
+        return AuthDataResultModel(user: result.user)
     }
     
 }

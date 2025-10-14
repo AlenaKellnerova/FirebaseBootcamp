@@ -2,19 +2,24 @@
 //  SettingsView.swift
 //  FirebaseBootcamp
 //
-//  Created by Heimdal Data on 08.10.2025.
-//
+//  Created by Heimdal Data on 08.10.2025.
+//
 
 import SwiftUI
 
 final class SettingsViewModel: ObservableObject {
     
     @Published var authProviders: [AuthProviderId] = []
+    @Published var authUser: AuthDataResultModel? = nil
     
     func loadAuthProviders() {
         if let providers = try? AuthenticationManager.shared.getProviders() {
             authProviders = providers
         }
+    }
+    
+    func loadAuthUser() {
+        self.authUser = try? AuthenticationManager.shared.getAuthenticatedUser()
     }
     
     func signOut() throws {
@@ -36,6 +41,28 @@ final class SettingsViewModel: ObservableObject {
     func updateEmail(email: String) async throws {
         try await AuthenticationManager.shared.updateEmail(email: email)
     }
+    
+    func linkGoogleAccount() async throws {
+        let helper = await SignInGoogleHelper()
+        let result = try await helper.signInGoogle()
+        self.authUser = try await AuthenticationManager.shared.linkGoogle(result: result)
+    }
+    
+    func linkAppeAccount() async throws {
+        let helper = await SignInAppleHelper()
+        let result = try await helper.startSignInWithAppleFlow()
+        self.authUser = try await AuthenticationManager.shared.linkApple(result: result)
+    }
+    
+    func linkEmailAccount() async throws {
+        let email = "abcd@abcd.com"
+        let password = "password123"
+        self.authUser = try await AuthenticationManager.shared.linkEmail(email: email, password: password)
+    }
+    
+    func deleteUser() async throws {
+        try await AuthenticationManager.shared.deleteUser()
+    }
 }
 
 struct SettingsView: View {
@@ -47,12 +74,19 @@ struct SettingsView: View {
         List {
             logOutButton
             
+            deleteAccountButton
+            
             if viewModel.authProviders.contains(.email) {
                 emailSection
+            }
+            
+            if viewModel.authUser?.isAnomymous == true {
+                anonymousSection
             }
         }
         .onAppear {
             viewModel.loadAuthProviders()
+            viewModel.loadAuthUser()
         }
         .navigationTitle("Settings")
     }
@@ -112,6 +146,52 @@ extension SettingsView {
         }
     }
     
+    private var anonymousSection: some View {
+        Section {
+            Button {
+                Task {
+                    do {
+                        try await viewModel.linkGoogleAccount()
+                        print("Google linked")
+                    } catch {
+                        print(error)
+                    }
+                }
+            } label: {
+                Text("Link Google Account")
+            }
+            
+            Button {
+                Task {
+                    do {
+                        try await viewModel.linkAppeAccount()
+                        print("Apple linked")
+                    } catch {
+                        print(error)
+                    }
+                }
+            } label: {
+                Text("Link Apple Account")
+            }
+            
+            Button {
+                Task {
+                    do {
+                        try await viewModel.linkEmailAccount()
+                        print("Email linked")
+                    } catch {
+                        print(error)
+                    }
+                }
+            } label: {
+                Text("Link Email Account")
+            }
+        } header: {
+            Text("Create Account")
+        }
+
+    }
+    
     private var logOutButton: some View {
         Button {
             Task {
@@ -125,6 +205,22 @@ extension SettingsView {
         } label: {
             Text("Log out")
                 .foregroundStyle(.red)
+        }
+    }
+    
+    private var deleteAccountButton: some View {
+        Button(role: .destructive) {
+            Task {
+                do {
+                    try await viewModel.deleteUser()
+                    showSignInView = true
+                    print("User deleted")
+                } catch {
+                    print(error)
+                }
+            }
+        } label: {
+            Text("Delete Account")
         }
     }
 }

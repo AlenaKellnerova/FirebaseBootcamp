@@ -12,12 +12,6 @@ import AuthenticationServices
 import CryptoKit
 import FirebaseAuth
 
-/*
- 1. Generate randrom Nonce String
- 2. Create a hash value from nonce
- */
-
-
 
 @MainActor
 final class AuthenticationViewModel: ObservableObject {
@@ -54,6 +48,10 @@ final class AuthenticationViewModel: ObservableObject {
 //        }
     }
     
+    func signInAnonymous() async throws{
+        try await AuthenticationManager.shared.signInAnonymous()
+    }
+    
 }
 
 
@@ -64,6 +62,29 @@ struct AuthenticationView: View {
     
     var body: some View {
         VStack {
+            
+            Button {
+                Task {
+                    do {
+                        try await viewModel.signInAnonymous()
+                        showSignInView = false
+                        print("Sign In anyomously success")
+                    } catch {
+                        print(error)
+                    }
+                }
+            } label: {
+                Text("Sign In Anonymously")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 55)
+                    .background(.orange)
+                    .cornerRadius(10)
+            }
+
+            
+            
             NavigationLink {
                 SignInEmailView(showSignInView: $showSignInView)
             } label: {
