@@ -13,48 +13,6 @@ import CryptoKit
 import FirebaseAuth
 
 
-@MainActor
-final class AuthenticationViewModel: ObservableObject {
-    
-//    @Published var didSignInWithApple: Bool = false
-//    let signInAppleHelper = SignInAppleHelper()
-    
-    func signInGoogle() async throws {
-        let signInGoogleHelper = SignInGoogleHelper()
-        let resultModel = try await signInGoogleHelper.signInGoogle() // Sign In to Google
-        try await AuthenticationManager.shared.signInWithGoogle(result: resultModel) // Sign In to Firebase
-    }
-    
-    func signInApple() async throws {
-        
-        let helper = SignInAppleHelper()
-        let result = try await helper.startSignInWithAppleFlow()
-        try await AuthenticationManager.shared.signInApple(result: result)
-        
-//        signInAppleHelper.startSignInWithAppleFlow { result in
-//            switch result {
-//            case.success(let signInAppleResult):
-//                Task {
-//                    do {
-//                        try await AuthenticationManager.shared.signInApple(result: signInAppleResult)
-//                        self.didSignInWithApple = true
-//                    } catch {
-//                        
-//                    }
-//                }
-//            case.failure(let error):
-//                print(error)
-//            }
-//        }
-    }
-    
-    func signInAnonymous() async throws{
-        try await AuthenticationManager.shared.signInAnonymous()
-    }
-    
-}
-
-
 struct AuthenticationView: View {
     
     @StateObject private var viewModel = AuthenticationViewModel()
