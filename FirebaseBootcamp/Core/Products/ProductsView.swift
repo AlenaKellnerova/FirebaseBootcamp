@@ -6,13 +6,14 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct ProductArray: Codable {
     let products: [Product]
     let total, skip, limit: Int
 }
 
-struct Product: Identifiable, Codable {
+struct Product: Identifiable, Codable, Equatable {
     let id: Int
     let title: String?
     let description: String?
@@ -37,6 +38,10 @@ struct Product: Identifiable, Codable {
         case thumbnail
         case images
     }
+    
+    static func ==(lhs: Product, rhs: Product) -> Bool {
+        return lhs.id == rhs.id
+    }
 }
 
 @MainActor
@@ -46,6 +51,7 @@ final class ProductsViewModel: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published var selectedSortOption: SortOption? = nil
     @Published var selectedCategoryOption: CategoryOption? = nil
+    private var lastDocument: DocumentSnapshot? = nil
     
 //    func getAllProducts() async throws {
 //        self.products = try await ProductsManager.shared.getAllProducts()
@@ -86,37 +92,36 @@ final class ProductsViewModel: ObservableObject {
     
     func getProducts() {
         Task {
-            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: selectedSortOption?.priceDescending, category: selectedCategoryOption?.categoryKey)
+            let (newProducts, lastDocument) = try await ProductsManager.shared.getAllRequestedProducts(descending: selectedSortOption?.priceDescending, category: selectedCategoryOption?.categoryKey, count: 6, lastDocument: lastDocument)
+            self.products.append(contentsOf: newProducts)
+            if let lastDocument {
+                self.lastDocument = lastDocument                
+            }
         }
     }
     
     
     func sortSelected(option: SortOption) async throws {
-//        switch option {
-//        case .all:
-//            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: nil, category: nil)
-//        case .priceLow:
-//            // query
-//            // ui
-//            // set filter to price hig
-//            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: false, category: selectedCategoryOption?.rawValue)
-//        case .priceHigh:
-//            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: true, category: selectedCategoryOption?.rawValue)
-//        }
         self.selectedSortOption = option
+        self.products = []
+        self.lastDocument = nil
         self.getProducts()
     }
     
     func filterByCategory(option: CategoryOption) async throws {
-//        switch option {
-//        case .noCategory:
-//            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: nil, category: selectedCategoryOption?.rawValue)
-//        case .fragrances, .furniture, .beauty:
-//            self.products = try await ProductsManager.shared.getAllRequestedProducts(descending: nil, category: selectedCategoryOption?.rawValue)
-//        }
- 
         self.selectedCategoryOption = option
+        self.products = []
+        self.lastDocument = nil
         getProducts()
+    }
+    
+    func getProductsByRating() {
+        Task {
+//            let newProducts = try await ProductsManager.shared.getProductsByRating(count: 3, lastRating: self.products.last?.rating)
+            let (newProducts, lastDocument) = try await ProductsManager.shared.getProductsByRating(count: 3, lastDocument: lastDocument)
+            self.products.append(contentsOf: newProducts)
+            self.lastDocument = lastDocument
+        }
     }
 
     
@@ -148,9 +153,21 @@ struct ProductsView: View {
     
     var body: some View {
         
+//        Button("Fetch more objects") {
+//            viewModel.getProductsByRating()
+//        }
+        
         List {
             ForEach(viewModel.products) { product in
                 ProductCellView(product: product)
+                
+                if product == viewModel.products.last {
+                    ProgressView()
+                        .onAppear {
+                            print("Progress view appeared")
+                            viewModel.getProducts()
+                        }
+                }
             }
         }
         .onAppear {
