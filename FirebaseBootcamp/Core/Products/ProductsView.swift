@@ -100,7 +100,6 @@ final class ProductsViewModel: ObservableObject {
         }
     }
     
-    
     func sortSelected(option: SortOption) async throws {
         self.selectedSortOption = option
         self.products = []
@@ -121,6 +120,13 @@ final class ProductsViewModel: ObservableObject {
             let (newProducts, lastDocument) = try await ProductsManager.shared.getProductsByRating(count: 3, lastDocument: lastDocument)
             self.products.append(contentsOf: newProducts)
             self.lastDocument = lastDocument
+        }
+    }
+    
+    func addUserFavoriteProduct(productId: Int) {
+        Task {
+            let authDataResult = try AuthenticationManager.shared.getAuthenticatedUser()
+            try? await UserManager.shared.addUserFavoriteProduct(userId: authDataResult.uid, productId: productId)
         }
     }
 
@@ -153,13 +159,15 @@ struct ProductsView: View {
     
     var body: some View {
         
-//        Button("Fetch more objects") {
-//            viewModel.getProductsByRating()
-//        }
-        
         List {
             ForEach(viewModel.products) { product in
                 ProductCellView(product: product)
+                    .contextMenu {
+                        Button("Add to favorites") {
+                            // on long tap shows a button
+                            viewModel.addUserFavoriteProduct(productId: product.id)
+                        }
+                    }
                 
                 if product == viewModel.products.last {
                     ProgressView()
