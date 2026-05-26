@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import Combine
 
 struct Movie: Codable {
     let id: String
@@ -139,6 +140,8 @@ final class UserManager {
     static let shared = UserManager()
     private init() {}
     
+    private var userFavProductsListener: ListenerRegistration? = nil
+    
     private let userCollection = Firestore.firestore().collection("users")
     
     private func userDocument(userId: String) -> DocumentReference {
@@ -261,6 +264,20 @@ final class UserManager {
     
     func getAllUserFavoriteProducts(userId: String) async throws -> [UserFavoriteProduct] {
         try await userDocument(userId: userId).collection("favorite_products").getDocuments(as: UserFavoriteProduct.self)
+    }
+    
+    func removeListenerForFavProducts() {
+        self.userFavProductsListener?.remove()
+    }
+    
+    // Combine publishers
+    func addListenerForAllUserFavoriteProducts(userId: String) -> AnyPublisher<[UserFavoriteProduct], any Error> {
+        
+        let (publisher, listener) = userDocument(userId: userId).collection("favorite_products")
+            .addSnapshotListener(as: UserFavoriteProduct.self)
+        
+        self.userFavProductsListener = listener
+        return publisher
     }
     
 }

@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import Combine
 
 final class ProductsManager {
     
@@ -137,6 +138,24 @@ extension Query {
              try document.data(as: T.self)
         }
         return (products, snapshot.documents.last)
+    }
+    
+    func addSnapshotListener<T>(as type: T.Type) -> (AnyPublisher<[T], any Error>, ListenerRegistration) where T : Decodable {
+        
+        let publisher = PassthroughSubject<[T], Error>()
+        
+        let listener = self.addSnapshotListener { querySnapshot, error in
+            guard let documents = querySnapshot?.documents else {
+                print("no document")
+                return
+            }
+            
+            let products: [T] = documents.compactMap { documentSnapshot in
+                return try? documentSnapshot.data(as: T.self)
+            }
+            publisher.send(products)
+        }
+        return (publisher.eraseToAnyPublisher(), listener)
     }
     
 }
