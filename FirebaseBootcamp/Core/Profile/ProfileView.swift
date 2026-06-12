@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 @MainActor
 final class ProfileViewModel: ObservableObject {
     
     @Published private(set) var user: DBUser? = nil
+   
     
     func loadCurrentUser() async throws {
         let authDataResult = try AuthenticationManager.shared.getAuthenticatedUser()
@@ -18,17 +20,10 @@ final class ProfileViewModel: ObservableObject {
     }
     
     func togglePremiumStatus() {
-        guard var user = user else { return }
+        guard let user = user else { return }
         let isCurrentlyPremium = user.isPremium ?? false
-//        let updatedUser = DBUser(userId: user.userId, isAnonymous: user.isAnonymous, email: user.email, photoUrl: user.photoUrl, dateCreated: user.dateCreated, isPremium: !isCurrentlyPremium)
-        
-        // Old methods: 
-//        let updatedUser = user.togglePremiumStatus()
-//        user.isPremium = !isCurrentlyPremium
-//        user.togglePremiumStatus()
         
         Task {
-//            try await UserManager.shared.updateUserPremiumStatus(user: user)
             try await UserManager.shared.updateUserPremiumStatus(userId: user.userId, isPremium: !isCurrentlyPremium)
             self.user = try await UserManager.shared.getUser(userId: user.userId)
         }
@@ -66,6 +61,29 @@ final class ProfileViewModel: ObservableObject {
             self.user = try await UserManager.shared.getUser(userId: user.userId)
         }
     }
+    
+    func saveProfileImage(photoPickerItem: PhotosPickerItem) {
+        guard let user else { return }
+        
+        Task {
+            guard let data = try await photoPickerItem.loadTransferable(type: Data.self) else { return }
+            let (path, name) = try await StorageManager.shared.saveImage(data: data, userId: user.userId)
+            print("Success! Path and name:")
+            print(path)
+            print(name)
+            let url = try await StorageManager.shared.getUrlForImage(path: path)
+            try await UserManager.shared.updateUserProfileImage(userId: user.userId, path: path, url: url.absoluteString)
+        }
+    }
+    
+    func deleteProfileImage() {
+        guard let user, let path = user.profileImagePath else { return }
+        
+        Task {
+            try await StorageManager.shared.deleteImage(path: path)
+            try await UserManager.shared.updateUserProfileImage(userId: user.userId, path: nil, url: nil)
+        }
+    }
 
 }
 
@@ -74,6 +92,9 @@ struct ProfileView: View {
     @StateObject private var viewModel = ProfileViewModel()
     @Binding var showSignInView: Bool
     let preferenceOptions: [String] = ["Sports", "Movies", "Books"]
+    @State private var selectedItem: PhotosPickerItem? = nil
+    @State private var profileImage: UIImage? = nil
+    @State private var url: URL? = nil
     
     private func preferenceIsSelected(preference: String) -> Bool {
         viewModel.user?.preferences?.contains(preference) == true
@@ -123,11 +144,46 @@ struct ProfileView: View {
                 } label: {
                     Text("Favorite movie: \(user.favoriteMovie?.title ?? "")")
                 }
+                
+                // Profile img picker
+                PhotosPicker(selection: $selectedItem, matching: .images, photoLibrary: .shared()) {
+                    Text("Select photo")
+                }
+                
+                
+                if let urlString = viewModel.user?.profileImagePathUrl, let url = URL(string: urlString) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 150, height: 150)
+                            .cornerRadius(10)
+                    } placeholder: {
+                        ProgressView()
+                            .frame(width: 150, height: 150)
+                    }
+                }
+                
+                if let _ = viewModel.user?.profileImagePath {
+                    Button("Delete Image") {
+                        viewModel.deleteProfileImage()
+                    }
+                }
+               
 
             }
         }
         .task {
             try? await viewModel.loadCurrentUser()
+            if let user = viewModel.user, let path = user.profileImagePath {
+                let url = try? await StorageManager.shared.getUrlForImage(path: path)
+                self.url = url
+            }
+        }
+        .onChange(of: selectedItem) { _, newValue in
+            if let newValue {
+                viewModel.saveProfileImage(photoPickerItem: newValue)
+            }
         }
         .navigationTitle("Profile")
         .toolbar {
