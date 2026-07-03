@@ -17,7 +17,8 @@ struct FirebaseBootcampApp: App {
     var body: some Scene {
         WindowGroup {
 //            RootView()
-            CrashView()
+//            CrashView()
+            PerformanceView()
         }
     }
 }
@@ -26,6 +27,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
         return true
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) { 
+        
+    }
+    
+    func applicationWillResignActive(_ application: UIApplication) {
+        
     }
     
     // When user dismiss the Google Sign In Modal -> we can automatically handle the URL -> not going to use it
