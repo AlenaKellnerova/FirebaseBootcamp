@@ -18,7 +18,8 @@ struct FirebaseBootcampApp: App {
         WindowGroup {
 //            RootView()
 //            CrashView()
-            PerformanceView()
+//            PerformanceView()
+            AnalyticsView()
         }
     }
 }
